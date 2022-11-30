@@ -18,18 +18,14 @@ species <- fb_tbl("species") %>%
 country <- fb_tbl("country") %>% 
   janitor::clean_names()
 
-# Find all species that might live in hawaii
-hi_fish <- country %>% 
-  filter(c_code == "840B")
-
-# Join hi_fish with species info
-hi_fish <- left_join(hi_fish, species, by = "spec_code")
+# Join country with species info
+species <- left_join(country, species, by = "spec_code")
 
 # Concatenate Genus and Species
-hi_fish$genus_species <- paste(hi_fish$genus, hi_fish$species)
-hi_fish <- hi_fish %>% relocate(genus_species, .after = spec_code) %>% 
+species$genus_species <- paste(species$genus, species$species)
+species <- species %>% relocate(genus_species, .after = spec_code) %>% 
   relocate(length, weight, .after = genus_species)
-hi_species_list <- as.character(hi_fish$genus_species) # Isolate list of species
+species_list <- as.character(species$genus_species) # Isolate list of species
 
 # Check out what is available in the various tables
 tables <- docs()
@@ -37,21 +33,21 @@ ecology <- fb_tbl("ecology")
 com_names <- fb_tbl("comnames")
 
 # Grab the ecological traits I'm looking for
-hi_ecol <- ecology(species_list = hi_species_list, 
+ecol <- ecology(my_species_list = species_list, 
                    fields = c("SpecCode", "CoralReefs", "FeedingType", "Schooling")) %>% 
   clean_names() # Theres duplicates here but I remove them later
-hi_com_names <- common_names(species_list = hi_species_list,
-                          fields = c("SpecCode", "ComName")) %>% 
+com_names <- common_names(species_list = species_list,
+                             fields = c("SpecCode", "ComName")) %>%
   clean_names()
 
 # Combine data sets then clean
-hi_fish_chars <- left_join(hi_fish, hi_ecol, by = "spec_code") %>% 
+fish_chars <- left_join(species, ecol, by = "spec_code") %>% 
   select(c("spec_code", "genus_species", "length", "weight", 
            "status", "current_presence", "genus", "species", "importance.y", 
            "price_categ", "coral_reefs", "feeding_type", "schooling")) %>% 
   filter(current_presence == "present") %>% # Data frame full of fish characteristics
   rename(length_cm = length)
-  
+
 ### --------------------------  IUCN --------------------------  ###
 
 # Identify token for accessing IUCN API
@@ -92,42 +88,42 @@ species15 <- rl_sp(page = 15, key = iucn_token)
 species15_df <- species15$result
 
 all_iucn_species <- bind_rows(species0_df, species1_df, species2_df, species3_df, 
-                     species4_df, species5_df, species6_df, species7_df,
-                     species8_df, species9_df, species10_df, species11_df,
-                     species12_df, species13_df, species14_df, species15_df) %>% 
+                              species4_df, species5_df, species6_df, species7_df,
+                              species8_df, species9_df, species10_df, species11_df,
+                              species12_df, species13_df, species14_df, species15_df) %>% 
   select(c("scientific_name", "category", "main_common_name")) %>% 
   rename(genus_species = scientific_name)
 
 ### ------------------------ Combine & Clean ------------------------  ###
 
-hi_fish_status <- left_join(hi_fish_chars, all_iucn_species,
+fish_status <- left_join(fish_chars, all_iucn_species,
                             by = "genus_species") # Duplicate rows introduced
 
 # Identify which rows are here multiple times
-status_unique <- as.data.frame(table(hi_fish_status$spec_code)) %>% 
+status_unique <- as.data.frame(table(fish_status$spec_code)) %>% 
   setNames(c("spec_code", "freq")) %>% 
   filter(!freq != 1) # remove rows w freq > 1
 #view(status_unique)
 
 # Recombine with status df
-hi_fish_status$spec_code <- as.factor(hi_fish_status$spec_code)
-hi_fish_status <- left_join(status_unique, hi_fish_status, 
+fish_status$spec_code <- as.factor(fish_status$spec_code)
+fish_status <- left_join(status_unique, fish_status, 
                             by = "spec_code")
 # Drop all rows with na values of interest
-hi_status_drop_na <- hi_fish_status %>% 
+status_drop_na <- fish_status %>% 
   filter(!category == "NA") %>% 
   filter(!category == "DD") %>% 
   filter(!length_cm == "NA") %>% 
   filter(!coral_reefs == "NA")
 
 # Make a binary column with 1 as some level of concern and 0 as least concern
-tidy_fish_data <- hi_status_drop_na %>% 
+tidy_fish_data <- status_drop_na %>% 
   mutate(is_of_concern = case_when(category == "CR" | 
-                                 category == "EN" |
-                                 category == "VU" ~ 1,
-                                 category == "LR/nt" |
-                                 category == "NT" |
-                                category == "LC" ~ 0)) %>% 
+                                     category == "EN" |
+                                     category == "VU" ~ 1,
+                                   category == "LR/nt" |
+                                     category == "NT" |
+                                     category == "LC" ~ 0)) %>% 
   mutate(coral_reefs = coral_reefs * - 1) %>% 
   mutate(reef_associated = case_when(coral_reefs == 1 ~ "yes",
                                      coral_reefs == 0 ~ "no")) %>% 
@@ -148,8 +144,8 @@ gg_len
 
 # Log regression length
 mod_length <- glm(is_of_concern ~ length_cm, 
-                 data = tidy_fish_data, 
-                 family = "binomial")
+                  data = tidy_fish_data, 
+                  family = "binomial")
 summary(mod_length)
 
 # Plot with regression
@@ -167,8 +163,8 @@ gg_reef
 
 # Log regression reefs
 mod_reef <- glm(is_of_concern ~ reef_associated, 
-                  data = tidy_fish_data, 
-                  family = "binomial")
+                data = tidy_fish_data, 
+                family = "binomial")
 summary(mod_reef)
 
 # Plot endemism vs is of concern
@@ -180,8 +176,8 @@ gg_status
 
 # Log regression of endemism
 mod_status <- glm(is_of_concern ~ is_endemic, 
-                data = tidy_fish_data, 
-                family = "binomial")
+                  data = tidy_fish_data, 
+                  family = "binomial")
 summary(mod_status)
 
 # I don't think these last two are correct... ask!!!
