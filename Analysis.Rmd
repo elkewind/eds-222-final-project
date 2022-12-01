@@ -1,0 +1,279 @@
+---
+title: "EDS 222 Final Project"
+author: "Elke Windschitll"
+date: "2022-12-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(broom)
+datadir <- "/Users/elkewindschitl/Documents/MEDS/eds-222/final-proj/data"
+```
+
+# Identifying key traits in Hawaiian fish to predict risk of extinction
+
+According to the IUCN, "More than 41,000 species are threatened with extinction. That is still 28% of all assessed species." (IUCN 2020). Wildlife scientists have been working to understand what ecological traits of vertebrates predict threat level, and what are common risk factors driving those threat level rates (Munstermann et al. 2022). This knowledge can help inform policies and practices with the goal to decrease threats of extinction of wildlife. In recent years, the waters surrounding the Hawaiian Islands have been exposed to climate and ecological changes due to mass coral bleaching events, El Nino events, and pollution. Here, I propose to investigate Hawaiian fish ecological traits -- such as endemism, size, and reef-association -- to predict their status on the IUCN red list. I will use data from the IUCN (IUCN 2020) and FishBase (Froese & Pauly 2022) and analyze by running logistic regression with a categorical binary outcome and 1-3 explanatory variables.
+
+## Import data
+
+I wrangled and combined data from RFishBase and the IUCN Red List in the R Script called fishbase.R. Here is the tidy data set.
+
+```{r}
+tidy_fish_data <- read.csv(file.path(datadir, "hi_tidy_fish_data.csv"))
+head(tidy_fish_data)                 
+```
+
+## Explore data columns of interest
+
+1.  IUCN Red List status
+
+```{r}
+table(tidy_fish_data$is_of_concern)
+```
+
+**Are these numbers poor for analysis?**
+
+2.  Fish length
+
+```{r}
+ggplot(tidy_fish_data, aes(x = length_cm)) +
+  geom_histogram(fill = "#38b6ba") + 
+  xlab("Length (cm)") +
+  ylab("Count") +
+  theme_minimal()
+```
+
+3.  Reef-Association
+
+```{r}
+table(tidy_fish_data$reef_associated)
+```
+
+4.  Endemic
+
+```{r}
+table(tidy_fish_data$is_endemic)
+```
+
+**Are these numbers poor for analysis?**
+
+## Analysis
+
+### Length
+
+$$\operatorname{logit}(p)=\log \left(\frac{p}{1-p}\right)=\beta_0+\beta_1  (Length)  +\varepsilon $$
+
+```{r}
+# Graph length vs is of concern
+gg_len <- ggplot(data = tidy_fish_data, aes(x = length_cm, y = is_of_concern)) +
+  geom_jitter(width = 0, height = 0.05, alpha = 0.8, col = "#38b6ba") +
+  labs(x = "Species average length", y = "Listed as a concern") +
+  theme_minimal()
+gg_len
+
+# Log regression length
+mod_length <- glm(is_of_concern ~ length_cm, 
+                 data = tidy_fish_data, 
+                 family = "binomial")
+summary(mod_length)
+
+# Plot with regression
+len_data_space <- gg_len +
+  geom_smooth(method = "glm", 
+              se = FALSE, color = "#545454", 
+              method.args = list(family = "binomial"))
+len_data_space
+
+# Make bins
+len_breaks <- tidy_fish_data %>%
+  pull(length_cm) %>%
+  quantile(probs = 0:10/10)
+
+len_binned_space <- len_data_space + 
+  stat_summary_bin(
+    fun = "mean", color = "red", 
+    geom = "line", breaks = len_breaks
+  )
+
+len_binned_space
+```
+
+**What exactly did this do?**
+
+```{r}
+# Compute fitted probabilities, then graph
+length_plus <- mod_length %>%
+  augment(type.predict = "response") %>%
+  mutate(y_hat = .fitted)
+ggplot(length_plus, aes(x = length_cm, y = y_hat)) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous("Probabilities of being threatened", 
+                     limits = c(0,1))
+
+# Compute odds scale and graph it
+length_plus <- length_plus %>% 
+mutate(odds_hat = y_hat / (1 - y_hat)) %>% 
+  filter(length_cm <= 1000) # remove outliers for graphing
+ggplot(length_plus, aes(x = length_cm, y = odds_hat)) +
+  geom_point() + 
+  geom_line() + 
+  scale_y_continuous("Odds of being threatened")
+
+# Pull B1
+len_b1 <- mod_length$coefficients[2]
+len_odds_ratio <- exp(len_b1)
+print(paste0("The model suggests that each additional cm in length is associated with a ",
+             round(len_odds_ratio, 1), "% increase in the odds of being threatened"))
+```
+
+**Okay, the model suggests this, but how can I determine the significance, confidence of this?**
+
+```{r}
+# Compute log-odds and graph it
+length_plus <- length_plus %>% 
+  mutate(log_odds_hat = log(odds_hat))
+ggplot(length_plus, aes(x = length_cm, y = log_odds_hat)) +
+  geom_point() + 
+  geom_line() + 
+  scale_y_continuous("Log(odds) of being threatened")
+
+# Create confusion matrix to see how well the model performed
+length_plus <- augment(mod_length, type.predict = "response") %>%
+  mutate(threatened_hat = round(.fitted)) %>%
+  select(is_of_concern, length_cm, .fitted, threatened_hat)
+l_tab <- length_plus %>%
+  select(is_of_concern, threatened_hat) %>%
+  table()
+l_tab
+
+acc <- (l_tab[1,1] + l_tab[2,2]) / nrow(length_plus) * 100
+print(paste0("The accuracy of this model was ", round(acc), "%")) 
+```
+
+**BUT it seems to be more accurate in predicting species that are not actually of concern. Species that are actually threatened have poorer prediction rates... how important is this? And again, how do I measure confidence in this statement?**
+
+### Reef-Associated
+
+```{r}
+# Plot reef associated vs is of concern 
+gg_reef <- ggplot(data = tidy_fish_data, aes(x = reef_associated, y = is_of_concern)) +
+  geom_jitter(width = 0.05, height = 0.05, alpha = 0.8, col = "#38b6ba") +
+  labs(x = "Reef Associated", y = "Listed as a concern") +
+  theme_minimal()
+gg_reef
+
+# Run a t.test
+reef_test <- t.test(is_of_concern ~ reef_associated, data = tidy_fish_data)
+
+# Log regression reefs -- does this even make sense to do?
+mod_reef <- glm(is_of_concern ~ reef_associated, 
+                data = tidy_fish_data, 
+                family = "binomial")
+summary(mod_reef)
+```
+
+**How do I interpret this coefficient? Or does it not make sense to run a regression of both a binary independent and binary dependent variable? This is why I also ran the t.test. Also, what is the best workflow here? If I ran the t.test and see that reef-association is insignificant, does it make any sense to add it to my model? I did for the experience of adding things to a model. Or would I have been fine without the t.test and proceeding below and discovering nothing significant there?**
+
+$$\operatorname{logit}(p)=\log \left(\frac{p}{1-p}\right)=\beta_0+\beta_1  (Length) + \beta_2  (Reef) +\varepsilon $$
+
+```{r}
+# Add reef association to the model
+len_reef_mod <- glm(is_of_concern ~ length_cm + reef_associated,
+                    data = tidy_fish_data,
+                    family = "binomial")
+summary(len_reef_mod)
+print(paste0("Fish that are reef associated see their odds of being threatened decrease by a factor of ", -round(len_reef_mod$coefficients[3], 2), " after controlling for length"))
+
+# Create confusion matrix to see how well the model performed
+length_reef_plus <- augment(len_reef_mod, type.predict = "response") %>%
+  mutate(threatened_hat = round(.fitted)) %>%
+  select(is_of_concern, length_cm, reef_associated, .fitted, threatened_hat)
+l_r_tab <- length_reef_plus %>%
+  select(is_of_concern, threatened_hat) %>%
+  table()
+l_r_tab # Adding reef did nothing
+```
+
+**As I can see here, adding reef-association did not seem to change the model. Where in my len_reef_mod output can I evaluate significance?**
+
+### Endemism
+
+**Endemism is essentially the same as reef-association, with some slight differences**
+
+$$\operatorname{logit}(p)=\log \left(\frac{p}{1-p}\right)=\beta_0+\beta_1  (Length) + \beta_2 (Endemic) +\varepsilon $$
+
+```{r}
+# Plot endemism vs is of concern
+gg_end <- ggplot(data = tidy_fish_data, aes(x = is_endemic, y = is_of_concern)) +
+  geom_jitter(width = 0.05, height = 0.05, alpha = 0.8, col = "#38b6ba") +
+  labs(x = "Endemic", y = "Listed as a concern") +
+  theme_minimal()
+gg_end
+
+# Run a t.test
+end_test <- t.test(is_of_concern ~ is_endemic, data = tidy_fish_data)
+
+# Log regression of endemism -- does this even make sense to do?
+mod_end <- glm(is_of_concern ~ is_endemic, 
+                  data = tidy_fish_data, 
+                  family = "binomial")
+summary(mod_end)
+
+# Add endemism to the original length model
+len_end_mod <- glm(is_of_concern ~ length_cm + is_endemic,
+                    data = tidy_fish_data,
+                    family = "binomial")
+summary(len_end_mod)
+print(paste0("Fish that are endemic see their odds of being threatened increase by a factor of ", round(len_end_mod$coefficients[3], 2), " after controlling for length"))
+
+# Create confusion matrix to see how well the model performed
+length_end_plus <- augment(len_end_mod, type.predict = "response") %>%
+  mutate(threatened_hat = round(.fitted)) %>%
+  select(is_of_concern, length_cm, is_endemic, .fitted, threatened_hat)
+l_e_tab <- length_end_plus %>%
+  select(is_of_concern, threatened_hat) %>%
+  table()
+l_e_tab # Adding endemism did nothing
+```
+
+### One big model (even though 2/3 do not appear to be significant at all)
+
+$$\operatorname{logit}(p)=\log \left(\frac{p}{1-p}\right)=\beta_0+\beta_1  (Length) + \beta_2  (Reef) + \beta_3  (Endemic) +\varepsilon $$
+
+
+```{r}
+mod <- glm(is_of_concern ~ length_cm + reef_associated + is_endemic,
+           data = tidy_fish_data,
+           family = "binomial")
+summary(mod)
+
+# Pull out all coefficients
+b0 <- mod$coefficients[1] #Intercept
+b1 <- mod$coefficients[2] #Length
+b2 <- mod$coefficients[3] #Reef Associated
+b3 <- mod$coefficients[4] #Endemic
+```
+
+**Lets say I just through all of these together before my earlier analyses, how do I interpret my coefficients, and how do I determine significance of each part of my model?**
+
+### Use the model
+
+**In an ideal world, I would have a great model (not the case, but I'm rolling with it for practice). I attempt below to predict probability of threatened/not threatened -- but is this done correctly?**
+
+```{r}
+# Write a function for testing probabilities
+threat_prob <- function(b0, b1, b2, b3, len, reef, end) {
+  equ <- b0 * b1 * len * b2 * reef * b3 * end # Right side of equation
+  prob <- (exp(equ)) / (1 + exp(equ)) # Pulled form lecture slides
+  print(prob)
+}
+# Test
+threat_prob(b0, b1, b2, b3, 700, 1, 1)
+threat_prob(b0, b1, b2, b3, 20, 1, 1)
+threat_prob(b0, b1, b2, b3, 450, 1, 1)
+```
+
+**I'm surprised a length of 20 cm is reporting a probability of 0.52 -- this seems too high, making me suspicious that something here is wrong**
