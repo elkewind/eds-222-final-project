@@ -155,6 +155,32 @@ print(paste0("The accuracy of this model was ", round(acc), "%"))
 
 **BUT it seems to be more accurate in predicting species that are not actually of concern. Species that are actually threatened have poorer prediction rates... how important is this? And again, how do I measure confidence in this statement?**
 
+Remove the outliers to test for significance
+
+```{r}
+# Remove my outliers
+len_rm_outlies <- tidy_fish_data %>% 
+   filter(length_cm <= 1000)
+
+gg_len_rm <- ggplot(data = len_rm_outlies, aes(x = length_cm, y = is_of_concern)) +
+  geom_jitter(width = 0, height = 0.05, alpha = 0.8, col = "#38b6ba") +
+  labs(x = "Species average length", y = "Listed as a concern") +
+  theme_minimal()
+gg_len_rm
+
+# Log regression length
+mod_length_rm <- glm(is_of_concern ~ length_cm, 
+                 data = len_rm_outlies, 
+                 family = "binomial")
+summary(mod_length_rm)
+
+# Plot with regression
+gg_len_rm +
+  geom_smooth(method = "glm", 
+              se = FALSE, color = "#545454", 
+              method.args = list(family = "binomial"))
+```
+
 ### Reef-Associated
 
 ```{r}
@@ -242,7 +268,6 @@ l_e_tab # Adding endemism did nothing
 ### One big model (even though 2/3 do not appear to be significant at all)
 
 $$\operatorname{logit}(p)=\log \left(\frac{p}{1-p}\right)=\beta_0+\beta_1  (Length) + \beta_2  (Reef) + \beta_3  (Endemic) +\varepsilon $$
-
 
 ```{r}
 mod <- glm(is_of_concern ~ length_cm + reef_associated + is_endemic,

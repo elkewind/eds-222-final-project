@@ -62,3 +62,48 @@ threat_prob(b0, b1, b2, b3, 450, 1, 1)
 # Attempt some t-tests???
 reef_test <- t.test(is_of_concern ~ reef_associated, data = tidy_fish_data)
 end_test <- t.test(is_of_concern ~ is_endemic, data = tidy_fish_data)
+
+
+
+
+
+
+
+
+tidy_fish_data$schooling <- tidy_fish_data$schooling * -1
+
+## Extra stuff
+gg_school <- ggplot(data = tidy_fish_data, aes(x = schooling, y = is_of_concern)) +
+  geom_jitter(width = 0.05, height = 0.05, alpha = 0.8, col = "#38b6ba") +
+  labs(x = "Schooling", y = "Listed as a concern") +
+  theme_minimal()
+gg_school
+
+mod_school <- glm(is_of_concern ~ schooling, 
+                  data = tidy_fish_data, 
+                  family = "binomial")
+summary(mod_school)
+
+t.test(is_of_concern ~ schooling, data = tidy_fish_data)
+
+price_rm_na <- tidy_fish_data %>% 
+  filter(!price_categ == "NA") %>% 
+  filter()
+
+gg_price <- ggplot(data = price_rm_na, aes(x = price_categ, y = is_of_concern)) +
+  geom_jitter(width = 0.05, height = 0.05, alpha = 0.8, col = "#38b6ba") +
+  labs(x = "Price Category", y = "Listed as a concern") +
+  theme_minimal()
+gg_price
+
+mod_price <- glm(is_of_concern ~ price_categ, 
+                 data = tidy_fish_data, 
+                 family = "binomial")
+summary(mod_price)
+
+mod_importance <- glm(is_of_concern ~ importance.y, 
+                      data = tidy_fish_data, 
+                      family = "binomial")
+summary(mod_importance)
+
+
