@@ -125,7 +125,7 @@ hi_status_drop_na <- hi_fish_status %>%
   filter(!category == "NA") %>% 
   filter(!category == "DD") %>% 
   filter(!length_cm == "NA") %>% 
-  filter(!coral_reefs == "NA")
+ filter(!coral_reefs == "NA")
 
 # Make a binary column with 1 as some level of concern and 0 as least concern
 tidy_fish_data <- hi_status_drop_na %>% 
@@ -180,7 +180,7 @@ len_binned_space <- len_data_space +
 
 len_binned_space
 
-# Compute fitter probabilities, then graph
+# Compute fitted probabilities, then graph
 length_plus <- mod_length %>%
   augment(type.predict = "response") %>%
   mutate(y_hat = .fitted)
@@ -326,7 +326,8 @@ threat_prob <- function(b0, b1, b2, b3, len, reef, end) {
 threat_prob(b0, b1, b2, b3, 700, 1, 1)
 threat_prob(b0, b1, b2, b3, 20, 1, 1)
 threat_prob(b0, b1, b2, b3, 450, 1, 1)
-
+threat_prob(b0, b1, b2, b3, min(tidy_fish_data$length_cm), 0, 0)
+threat_prob(b0, b1, b2, b3, max(tidy_fish_data$length_cm), 1, 0)
 # Attempt some t-tests???
 reef_test <- t.test(is_of_concern ~ reef_associated, data = tidy_fish_data)
 end_test <- t.test(is_of_concern ~ is_endemic, data = tidy_fish_data)

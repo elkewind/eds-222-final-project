@@ -50,7 +50,7 @@ hi_com_names <- common_names(species_list = hi_species_list,
 
 # Combine data sets then clean
 hi_fish_chars <- left_join(hi_fish, hi_ecol, by = "spec_code") %>% 
-  select(c("spec_code", "genus_species", "length", "weight", 
+  select(c("spec_code", "genus_species", "length", "l_type_max_m", "weight", 
            "status", "current_presence", "genus", "species", "importance.y", 
            "price_categ", "coral_reefs", "feeding_type", "schooling")) %>% 
   filter(current_presence == "present") %>% # Data frame full of fish characteristics
@@ -123,8 +123,8 @@ hi_fish_status <- left_join(status_unique, hi_fish_status,
 # Drop all rows with na values of interest
 hi_status_drop_na <- hi_fish_status %>% 
   filter(!category == "NA") %>% 
-  filter(!category == "DD") %>% 
-  filter(!length_cm == "NA") %>% 
+  filter(!category == "DD")
+  #filter(!length_cm == "NA")
   #filter(!coral_reefs == "NA")
 
 # Make a binary column with 1 as some level of concern and 0 as least concern
@@ -141,14 +141,18 @@ tidy_fish_data <- hi_status_drop_na %>%
   mutate(is_endemic = case_when(status == "endemic" ~ "yes",
                                 status == "native" |
                                   status == "introduced" ~ "no"))
-#write.csv(tidy_fish_data, file.path(dataexp, "hi_tidy_fish_data.csv"))
+
+write.csv(tidy_fish_data, file.path(dataexp, "hi_tidy_fish_data.csv"))
 
 ### ------------------------ Stats Analysis ------------------------  ###
 
 # Here I look at each piece individually, then combine them together later
 
+rm_len_na <- tidy_fish_data %>% 
+  filter(!length_cm == "NA")
+
 # Graph length vs is of concern
-gg_len <- ggplot(data = tidy_fish_data, aes(x = length_cm, y = is_of_concern)) +
+gg_len <- ggplot(data = rm_len_na, aes(x = length_cm, y = is_of_concern)) +
   geom_jitter(width = 0, height = 0.05, alpha = 0.8, col = "#38b6ba") +
   labs(x = "Species average length", y = "Listed as a concern") +
   theme_minimal()
@@ -156,7 +160,7 @@ gg_len
 
 # Log regression length
 mod_length <- glm(is_of_concern ~ length_cm, 
-                 data = tidy_fish_data, 
+                 data = rm_len_na, 
                  family = "binomial")
 summary(mod_length)
 
@@ -168,7 +172,7 @@ len_data_space <- gg_len +
 len_data_space
 
 # Make bins
-len_breaks <- tidy_fish_data %>%
+len_breaks <- rm_len_na %>%
   pull(length_cm) %>%
   quantile(probs = 0:10/10)
 
@@ -225,9 +229,17 @@ l_tab
 acc <- (l_tab[1,1] + l_tab[2,2]) / nrow(length_plus) * 100
 print(paste0("The accuracy of this model was ", round(acc), "%")) # BUT it seems to be more accurate in predicting species that are not actually of concern. Species that are actually threatened have poorer prediction rates... how important is this?
 
+
+
+
+
+
 # Add reef association to the model
+tidy_no_na <- rm_len_na %>% 
+  filter(!coral_reefs == "NA")
+
 len_reef_mod <- glm(is_of_concern ~ length_cm + reef_associated,
-                    data = tidy_fish_data,
+                    data = tidy_no_na,
                     family = "binomial")
 len_reef_mod
 print(paste0("Fish that are reef associated see their odds of being threatened decrease by a factor of ", -round(len_reef_mod$coefficients[3], 2), " after controlling for length"))
@@ -241,11 +253,15 @@ l_r_tab <- length_reef_plus %>%
   table()
 l_r_tab # Adding reef did nothing
 
+
+
+
+
 # Add endemism to the original length model
 len_end_mod <- glm(is_of_concern ~ length_cm + is_endemic,
-                    data = tidy_fish_data,
+                    data = rm_len_na,
                     family = "binomial")
-len_end_mod
+summary(len_end_mod)
 print(paste0("Fish that are endemic see their odds of being threatened increase by a factor of ", round(len_end_mod$coefficients[3], 2), " after controlling for length"))
 
 # Create confusion matrix to see how well the model performed
@@ -264,10 +280,11 @@ l_e_tab # Adding endemism did nothing
 
 
 
-
+rm_ra_na <- tidy_fish_data %>% 
+  filter(!coral_reefs == "NA")
 
 # Plot reef associated vs is of concern 
-gg_reef <- ggplot(data = tidy_fish_data, aes(x = reef_associated, y = is_of_concern)) +
+gg_reef <- ggplot(data = rm_ra_na, aes(x = reef_associated, y = is_of_concern)) +
   geom_jitter(width = 0.05, height = 0.05, alpha = 0.8, col = "#38b6ba") +
   labs(x = "Reef Associated", y = "Listed as a concern") +
   theme_minimal()
@@ -275,7 +292,7 @@ gg_reef
 
 # Log regression reefs -- does this even make sense to do?
 mod_reef <- glm(is_of_concern ~ reef_associated, 
-                  data = tidy_fish_data, 
+                  data = rm_ra_na, 
                   family = "binomial")
 summary(mod_reef)
 
@@ -296,7 +313,7 @@ summary(mod_status)
 
 # Combining it all together (even though)
 mod <- glm(is_of_concern ~ length_cm + reef_associated + is_endemic,
-           data = tidy_fish_data,
+           data = tidy_no_na,
            family = "binomial")
 summary(mod)
 
@@ -307,18 +324,18 @@ b2 <- mod$coefficients[3] #Reef Associated
 b3 <- mod$coefficients[4] #Endemic
 
 # Run some test probabilities 
-equ <- b0 * b1 * 700  * b2 * b3
+equ <- b0 + b1 * 700  + b2 + b3
 p_700_1_1 <- (exp(equ)) / (1 + exp(equ))
 
-equ20 <- b0 * b1 * 20 * b2 * b3
+equ20 <- b0 + b1 * 20  + b2 + b3
 p_20_1_1 <- (exp(equ20)) / (1 + exp(equ20))
 
-equ450 <- b0 * b1 * 450 * b2 * b3
+equ450 <- b0 + b1 * 450  + b2 + b3
 p_450_1_1 <- (exp(equ450)) / (1 + exp(equ450))
 
 # Write a function for testing probabilities
 threat_prob <- function(b0, b1, b2, b3, len, reef, end) {
-  equ <- b0 * b1 * len * b2 * reef * b3 * end
+  equ <- b0 + b1 * len + b2 * reef + b3 * end
   prob <- (exp(equ)) / (1 + exp(equ))
   print(prob)
 }
@@ -328,9 +345,8 @@ threat_prob(b0, b1, b2, b3, 20, 1, 1)
 threat_prob(b0, b1, b2, b3, 450, 1, 1)
 
 # Attempt some t-tests???
-reef_test <- t.test(is_of_concern ~ reef_associated, data = tidy_fish_data)
-end_test <- t.test(is_of_concern ~ is_endemic, data = tidy_fish_data)
-
+t.test(is_of_concern ~ reef_associated, data = rm_ra_na)
+t.test(is_of_concern ~ is_endemic, data = tidy_fish_data)
 
 
 
