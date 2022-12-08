@@ -80,7 +80,7 @@ len_binned_space <- len_data_space +
     geom = "line", breaks = len_breaks
   )
 len_binned_space
-# Compute fitter probabilities, then graph
+# Compute fitted probabilities, then graph
 length_plus <- mod_length %>%
   augment(type.predict = "response") %>%
   mutate(y_hat = .fitted)
