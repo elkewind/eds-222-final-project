@@ -1,4 +1,7 @@
 ### ------------------- EDS 222 Final Project ------------------- ###
+### This is the original code for the following blog post (completed in early December 2022).
+### Feel free to check it out:
+### https://elkewind.github.io/posts/2022-12-02-hawaiian-fish-analysis/
 ### Identifying key traits in Hawaiian fish to predict risk of extinction ###
 
 # Load libraries
@@ -14,7 +17,7 @@ dataexp <- "/Users/elkewindschitl/Documents/MEDS/eds-222/final-proj/data"
 
 ### -------------------------- FishBase --------------------------  ###
 
-# Load all species
+# Load all species in FishBase
 species <- fb_tbl("species") %>% 
   janitor::clean_names()
 
@@ -22,7 +25,7 @@ species <- fb_tbl("species") %>%
 country <- fb_tbl("country") %>% 
   janitor::clean_names()
 
-# Find all species that might live in hawaii
+# Find all species that might live in Hawaii
 hi_fish <- country %>% 
   filter(c_code == "840B")
 
@@ -45,7 +48,7 @@ hi_ecol <- ecology(species_list = hi_species_list,
                    fields = c("SpecCode", "CoralReefs", "FeedingType", "Schooling")) %>% 
   clean_names() # Theres duplicates here but I remove them later
 hi_com_names <- common_names(species_list = hi_species_list,
-                          fields = c("SpecCode", "ComName")) %>% 
+                             fields = c("SpecCode", "ComName")) %>% 
   clean_names()
 
 # Combine data sets then clean
@@ -55,50 +58,29 @@ hi_fish_chars <- left_join(hi_fish, hi_ecol, by = "spec_code") %>%
            "price_categ", "coral_reefs", "feeding_type", "schooling")) %>% 
   filter(current_presence == "present") %>% # Data frame full of fish characteristics
   rename(length_cm = length)
-  
+
 ### --------------------------  IUCN --------------------------  ###
 
 # Identify token for accessing IUCN API
 iucn_token <- Sys.getenv("IUCN_KEY")
 
 # Import all species on IUCN Redlist
+for (i in 0:15) {
+  # Get data from API and assign to variable with a name
+  assign(paste0("species", i), rl_sp(page = i, key = iucn_token))
+  # Get the result data frame from the variable and assign to a new variable with a name
+  assign(paste0("species", i, "_df"), get(paste0("species", i))$result)
+}
+
+
 species0 <- rl_sp(page = 0, key = iucn_token)
 species0_df <- species0$result
-species1 <- rl_sp(page = 1, key = iucn_token)
-species1_df <- species1$result
-species2 <- rl_sp(page = 2, key = iucn_token)
-species2_df <- species2$result
-species3 <- rl_sp(page = 3, key = iucn_token)
-species3_df <- species3$result
-species4 <- rl_sp(page = 4, key = iucn_token)
-species4_df <- species4$result
-species5 <- rl_sp(page = 5, key = iucn_token)
-species5_df <- species5$result
-species6 <- rl_sp(page = 6, key = iucn_token)
-species6_df <- species6$result
-species7 <- rl_sp(page = 7, key = iucn_token)
-species7_df <- species7$result
-species8 <- rl_sp(page = 8, key = iucn_token)
-species8_df <- species8$result
-species9 <- rl_sp(page = 9, key = iucn_token)
-species9_df <- species9$result
-species10 <- rl_sp(page = 10, key = iucn_token)
-species10_df <- species10$result
-species11 <- rl_sp(page = 11, key = iucn_token)
-species11_df <- species11$result
-species12 <- rl_sp(page = 12, key = iucn_token)
-species12_df <- species12$result
-species13 <- rl_sp(page = 13, key = iucn_token)
-species13_df <- species13$result
-species14 <- rl_sp(page = 14, key = iucn_token)
-species14_df <- species14$result
-species15 <- rl_sp(page = 15, key = iucn_token)
-species15_df <- species15$result
 
 all_iucn_species <- bind_rows(species0_df, species1_df, species2_df, species3_df, 
-                     species4_df, species5_df, species6_df, species7_df,
-                     species8_df, species9_df, species10_df, species11_df,
-                     species12_df, species13_df, species14_df, species15_df)
+                              species4_df, species5_df, species6_df, species7_df,
+                              species8_df, species9_df, species10_df, species11_df,
+                              species12_df, species13_df, species14_df, species15_df)
+
 # Save this as a csv
 #write.csv(all_iucn_species, file.path(dataexp, "all_iucn_species.csv"))
 
@@ -124,17 +106,15 @@ hi_fish_status <- left_join(status_unique, hi_fish_status,
 hi_status_drop_na <- hi_fish_status %>% 
   filter(!category == "NA") %>% 
   filter(!category == "DD")
-  #filter(!length_cm == "NA")
-  #filter(!coral_reefs == "NA")
 
 # Make a binary column with 1 as some level of concern and 0 as least concern
 tidy_fish_data <- hi_status_drop_na %>% 
   mutate(is_of_concern = case_when(category == "CR" | 
-                                 category == "EN" |
-                                 category == "VU" ~ 1,
-                                 category == "LR/nt" |
-                                 category == "NT" |
-                                category == "LC" ~ 0)) %>% 
+                                     category == "EN" |
+                                     category == "VU" ~ 1,
+                                   category == "LR/nt" |
+                                     category == "NT" |
+                                     category == "LC" ~ 0)) %>% 
   mutate(coral_reefs = coral_reefs * - 1) %>% 
   mutate(reef_associated = case_when(coral_reefs == 1 ~ "yes",
                                      coral_reefs == 0 ~ "no")) %>% 
@@ -142,12 +122,12 @@ tidy_fish_data <- hi_status_drop_na %>%
                                 status == "native" |
                                   status == "introduced" ~ "no"))
 
-write.csv(tidy_fish_data, file.path(dataexp, "hi_tidy_fish_data.csv"))
-write.csv(hi_fish_status, file.path(dataexp, "hi_fish_status.csv"))
+#write.csv(tidy_fish_data, file.path(dataexp, "hi_tidy_fish_data.csv"))
+#write.csv(hi_fish_status, file.path(dataexp, "hi_fish_status.csv"))
 
 ### ------------------------ Stats Analysis ------------------------  ###
 
-# Here I look at each piece individually, then combine them together later
+# Here I model each piece individually, then combine them together later
 
 rm_len_na <- tidy_fish_data %>% 
   filter(!length_cm == "NA")
@@ -161,8 +141,8 @@ gg_len
 
 # Log regression length
 mod_length <- glm(is_of_concern ~ length_cm, 
-                 data = rm_len_na, 
-                 family = "binomial")
+                  data = rm_len_na, 
+                  family = "binomial")
 summary(mod_length)
 
 # Plot with regression
@@ -172,18 +152,6 @@ len_data_space <- gg_len +
               method.args = list(family = "binomial"))
 len_data_space
 
-# Make bins
-len_breaks <- rm_len_na %>%
-  pull(length_cm) %>%
-  quantile(probs = 0:10/10)
-
-len_binned_space <- len_data_space + 
-  stat_summary_bin(
-    fun = "mean", color = "red", 
-    geom = "line", breaks = len_breaks
-  )
-
-len_binned_space
 
 # Compute fitter probabilities, then graph
 length_plus <- mod_length %>%
@@ -193,16 +161,18 @@ ggplot(length_plus, aes(x = length_cm, y = y_hat)) +
   geom_point() +
   geom_line() +
   scale_y_continuous("Probabilities of being threatened", 
-                     limits = c(0,1))
+                     limits = c(0,1)) +
+  theme_minimal()
 
 # Compute odds scale and graph it
 length_plus <- length_plus %>% 
-mutate(odds_hat = y_hat / (1 - y_hat)) %>% 
+  mutate(odds_hat = y_hat / (1 - y_hat)) %>% 
   filter(length_cm <= 1000) # remove outliers for graphing
 ggplot(length_plus, aes(x = length_cm, y = odds_hat)) +
   geom_point() + 
   geom_line() + 
-  scale_y_continuous("Odds of being threatened")
+  scale_y_continuous("Odds of being threatened") +
+  theme_minimal()
 
 # Pull B1
 len_b1 <- mod_length$coefficients[2]
@@ -213,10 +183,11 @@ print(paste0("The model suggests that each additional cm in length is associated
 # Compute log-odds and graph it
 length_plus <- length_plus %>% 
   mutate(log_odds_hat = log(odds_hat))
-ggplot(length_plus, aes(x = length_cm, y = log_odds_hat)) +
+ggplot(length_plus, aes(x = length (cm), y = log_odds_hat)) +
   geom_point() + 
   geom_line() + 
-  scale_y_continuous("Log(odds) of being threatened")
+  scale_y_continuous("Log(odds) of being threatened") +
+  theme_minimal()
 
 # Create confusion matrix to see how well the model performed
 length_plus <- augment(mod_length, type.predict = "response") %>%
@@ -228,8 +199,7 @@ l_tab <- length_plus %>%
 l_tab
 
 acc <- (l_tab[1,1] + l_tab[2,2]) / nrow(length_plus) * 100
-print(paste0("The accuracy of this model was ", round(acc), "%")) # BUT it seems to be more accurate in predicting species that are not actually of concern. Species that are actually threatened have poorer prediction rates... how important is this?
-
+print(paste0("The accuracy of this model was ", round(acc), "%. However, it seems to be more accurate in predicting species that are not actually of concern. Species that are actually threatened have poorer prediction rates.")) 
 
 
 
@@ -260,8 +230,8 @@ l_r_tab # Adding reef did nothing
 
 # Add endemism to the original length model
 len_end_mod <- glm(is_of_concern ~ length_cm + is_endemic,
-                    data = rm_len_na,
-                    family = "binomial")
+                   data = rm_len_na,
+                   family = "binomial")
 summary(len_end_mod)
 print(paste0("Fish that are endemic see their odds of being threatened increase by a factor of ", round(len_end_mod$coefficients[3], 2), " after controlling for length"))
 
@@ -293,8 +263,8 @@ gg_reef
 
 # Log regression reefs -- does this even make sense to do?
 mod_reef <- glm(is_of_concern ~ reef_associated, 
-                  data = rm_ra_na, 
-                  family = "binomial")
+                data = rm_ra_na, 
+                family = "binomial")
 summary(mod_reef)
 
 # Plot endemism vs is of concern
@@ -306,8 +276,8 @@ gg_status
 
 # Log regression of endemism -- does this even make sense to do?
 mod_status <- glm(is_of_concern ~ is_endemic, 
-                data = tidy_fish_data, 
-                family = "binomial")
+                  data = tidy_fish_data, 
+                  family = "binomial")
 summary(mod_status)
 
 # I don't think these last two are correct... ask!!!
@@ -345,14 +315,16 @@ threat_prob(b0, b1, b2, b3, 700, 1, 1)
 threat_prob(b0, b1, b2, b3, 20, 1, 1)
 threat_prob(b0, b1, b2, b3, 450, 1, 1)
 
-# Attempt some t-tests???
+# Attempt some t-tests
 t.test(is_of_concern ~ reef_associated, data = rm_ra_na)
 t.test(is_of_concern ~ is_endemic, data = tidy_fish_data)
 
 ### ------------------------ Predictions ------------------------  ###
 
+# Make predictions for species not listed on IUCN
+
 hi_fish_no_rank <- hi_fish_status %>% 
-  filter(is.na(category) | category == "DD")
+  filter(is.na(category) | category == "DD") # data deficient species
 
 tidy_no_rank <- hi_fish_no_rank %>% 
   mutate(coral_reefs = coral_reefs * - 1) %>% 
@@ -362,14 +334,15 @@ tidy_no_rank <- hi_fish_no_rank %>%
                                 status == "native" |
                                   status == "introduced" ~ 0))
 
+# apply model to species that are data deficient
 for (i in seq_along(tidy_no_rank$genus_species)) {
   tidy_no_rank$y_hat[i] <- threat_prob(b0, b1, b2, b3, 
-                                    tidy_no_rank$length_cm[i],
-                                    tidy_no_rank$coral_reefs[i],
-                                    tidy_no_rank$is_endemic[i])
+                                       tidy_no_rank$length_cm[i],
+                                       tidy_no_rank$coral_reefs[i],
+                                       tidy_no_rank$is_endemic[i])
 }
 
 tidy_pred_rank <- tidy_no_rank %>% arrange(desc(y_hat))
-
+head(tidy_pred_rank)
 
 
