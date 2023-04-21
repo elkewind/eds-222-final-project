@@ -1,4 +1,5 @@
-------------------- EDS 222 Final Project ------------------- 
+EDS 222 Statistics for Environmental Data Science Final Project
+
 Identifying key traits in Hawaiian fish to predict risk of extinction
 This is the original code repository for the following blog post (completed in early December 2022).
 Feel free to check it out:
