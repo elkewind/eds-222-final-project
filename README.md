@@ -1,5 +1,4 @@
-![Three images of fish]("./fish_collage.jpg")
-[![](04-README-images/kelp-image-underwater.jpg)](https://bren.ucsb.edu/projects/developing-data-pipeline-kelp-forest-modeling)
+![Collage of three underwater fish photos](./fish_collage.jpg)
 # EDS 222 Statistics for Environmental Data Science Final Project
 
 ### Identifying key traits in Hawaiian fish to predict risk of extinction
