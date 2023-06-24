@@ -1,4 +1,4 @@
-![Three images of fish]("/fish_collage.jpg")
+![Three images of fish]("/Users/elkewindschitl/Documents/MEDS/eds-222/final-proj/eds-222-final-project/fish_collage.jpg")
 # EDS 222 Statistics for Environmental Data Science Final Project
 
 ### Identifying key traits in Hawaiian fish to predict risk of extinction
