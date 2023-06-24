@@ -1,4 +1,3 @@
-![Collage of three underwater fish photos](./fish_collage.jpg)
 # EDS 222 Statistics for Environmental Data Science Final Project
 
 ### Identifying key traits in Hawaiian fish to predict risk of extinction
@@ -8,3 +7,4 @@ This is the original code repository for the following blog post and my final pr
 
 ### Data
 Data used in this project came from the [IUCN Red List](https://www.iucnredlist.org/) and [FishBase.](www.fishbase.org)
+![Collage of three underwater fish photos](./fish_collage.jpg)
