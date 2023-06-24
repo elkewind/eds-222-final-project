@@ -7,4 +7,5 @@ This is the original code repository for the following blog post and my final pr
 
 ### Data
 Data used in this project came from the [IUCN Red List](https://www.iucnredlist.org/) and [FishBase.](www.fishbase.org)
+
 ![Collage of three underwater fish photos](./fish_collage.jpg)
