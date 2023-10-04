@@ -1,6 +1,5 @@
-# EDS 222 Statistics for Environmental Data Science Final Project
-
-### Identifying key traits in Hawaiian fish to predict risk of extinction
+# Identifying key traits in Hawaiian fish to predict risk of extinction 
+### EDS 222 Statistics for Environmental Data Science Final Project
 
 ## Summary
 This is the original code repository for the following blog post and my final project for a statistics course at the Bren School of Envrionmental Science and Management taught by Tamma Carleton (completed in early December 2022). I investigate Hawaiian fish ecological traits – such as size, endemism, and reef-association – to find their probability of being threatened as ranked by the IUCN Red List. 
